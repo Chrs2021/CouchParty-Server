@@ -8,25 +8,20 @@ import io.ktor.http.cio.websocket.Frame
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.*
 
-object WsClientApp {
+object WsHostClientApp {
     @JvmStatic
     fun main(args: Array<String>) {
-
         runBlocking {
-            var lastCommand : String
             val client = HttpClient(CIO).config { install(WebSockets) }
-            client.ws(method = HttpMethod.Get, host = "127.0.0.1", port = 8080, path = "/game/join/044c9eed39ae4d4a") {
+            client.ws(method = HttpMethod.Get, host = "127.0.0.1", port = 8080, path = "/game/create") {
                 send(Frame.Text("who"))
-
+                var  lastMsg = ""
                 while (true){
                     incoming.consumeEach { frame ->
                         if(frame is Frame.Text) {
                             println("Server said: ${frame.readText()}")
                         }
                     }
-
-
-                    lastCommand = readLine().toString()
 
                 }
             }

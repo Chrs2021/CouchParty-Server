@@ -1,15 +1,17 @@
 package com.birdbrain.components
 
+import com.birdbrain.interfaces.GameController
 import com.birdbrain.models.Player
 import io.ktor.http.cio.websocket.Frame
 import io.ktor.http.cio.websocket.WebSocketSession
+import kotlinx.atomicfu.AtomicInt
 import kotlinx.atomicfu.atomic
 import java.util.concurrent.ConcurrentHashMap
 
-class GameRoom(roomName : String, val hostDisplay : WebSocketSession) {
-    val playerList = HashMap<String, Player>()
+abstract class ProtoGameRoom(roomName : String, val hostDisplay : WebSocketSession, val roundTimer : Int) : GameController {
+    private val playerList = ConcurrentHashMap<String, Player>()
     private var players = atomic(0)
-
+    private lateinit var currentTimerVal : AtomicInt
 
     fun getPlayerCount() : Int{
         return players.value
@@ -28,9 +30,10 @@ class GameRoom(roomName : String, val hostDisplay : WebSocketSession) {
     }
 
     private suspend fun updatePlayers() {
-            hostDisplay.send(Frame.Text("Current players: ${getPlayerCount()}"))
+        hostDisplay.send(Frame.Text("Current players: ${getPlayerCount()}"))
+
         playerList.values.forEach{ player ->
             player.ws?.send(Frame.Text("Current players: ${getPlayerCount()}"))
         }
-}
     }
+}

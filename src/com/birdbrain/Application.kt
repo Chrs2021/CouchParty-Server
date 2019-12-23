@@ -1,6 +1,6 @@
 package com.birdbrain
 
-import com.birdbrain.components.GameRoom
+import com.birdbrain.components.ProtoGameRoom
 import com.birdbrain.models.Player
 import io.ktor.application.*
 import io.ktor.features.CallLogging
@@ -14,6 +14,7 @@ import io.ktor.request.path
 import io.ktor.util.InternalAPI
 import io.ktor.util.generateNonce
 import kotlinx.coroutines.channels.*
+import java.util.concurrent.ConcurrentHashMap
 
 fun main(args: Array<String>): Unit = io.ktor.server.netty.EngineMain.main(args)
 
@@ -21,19 +22,23 @@ fun main(args: Array<String>): Unit = io.ktor.server.netty.EngineMain.main(args)
 @Suppress("unused") // Referenced in application.conf
 @kotlin.jvm.JvmOverloads
 fun Application.module(testing: Boolean = false) {
-    val gameRooms = HashMap<String, GameRoom>()
+    val gameRooms = ConcurrentHashMap<String, ProtoGameRoom>()
+
+
     install(Sessions) {
         cookie<Player>("SESSION")
     }
+
+
     install(CallLogging)
 
     intercept(ApplicationCallPipeline.Features) {
         if (call.sessions.get<Player>() == null) {
-            call.sessions.set(Player(generateNonce().toString()))
+            call.sessions.set(Player(generateNonce()))
         }
     }
 
-    install(io.ktor.websocket.WebSockets) {
+    install(WebSockets) {
         pingPeriod = Duration.ofMinutes(1)
         timeout = Duration.ofSeconds(15)
         maxFrameSize = Long.MAX_VALUE
@@ -41,29 +46,25 @@ fun Application.module(testing: Boolean = false) {
     }
 
     routing {
+
         webSocket("/game/create") {
             // First of all we get the session.
-            var id = generateNonce().toString()
+            var id = generateNonce()
 
-            gameRooms[id.toString()] = GameRoom(id.toString(), this)
             try {
                 incoming.consumeEach { frame ->
                     if (frame is Frame.Text) {
-                        when (frame.readText()) {
-                            "who" -> send(Frame.Text("gameroom ID: $id"))
-                            "path" -> send(Frame.Text(call.request.path()))
-                            "count" -> gameRooms[id]?.hostDisplay?.send(Frame.Text("test"))
-                            "bye" -> this.close(CloseReason(CloseReason.Codes.NORMAL, "Said Bye Bye"))
-                            else -> send(Frame.Text("Unknown Message ${frame.readText()}"))
-                        }
+                        gameRooms[id]?.onHostMessageRecieved(frame.readText())
                     }
                 }
             }finally {
                 gameRooms.remove(id)
             }
         }
+
         webSocket("/game/join/*") {
             val id = call.request.path().split('/').last()
+            if(gameRooms.contains(id)){
             val session = call.sessions.get<Player>()
 
             if (session == null) {
@@ -77,25 +78,18 @@ fun Application.module(testing: Boolean = false) {
             try {
                 incoming.consumeEach { frame ->
                     if (frame is Frame.Text ) {
-                        receiveMessage(frame.readText(),session)
+                        gameRooms[id]?.onMessageReceived(frame.readText(), session)
                     }
                 }
             }finally {
                 session?.id?.let {
-                    println("player $it left")
+                    log.debug("player $id left the room!")
                     gameRooms[id]?.removePlayer(it) }
+                }
+            }else {
+              close(CloseReason(CloseReason.Codes.CANNOT_ACCEPT, "No such room id"))
             }
         }
-    }
-
-}
-
-suspend fun receiveMessage(readText: String, session: Player) {
-    when (readText) {
-        "who" -> session.ws?.send(Frame.Text("Player id: ${session?.id.toString()}"))
-        "setPlayer" -> session?.displayName = "test"
-        "setAvatar" -> session?.avatar
-        else -> println("invalid argument: $readText")
     }
 }
 
