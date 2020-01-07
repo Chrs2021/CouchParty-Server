@@ -8,7 +8,19 @@ import kotlinx.atomicfu.AtomicInt
 import kotlinx.atomicfu.atomic
 import java.util.concurrent.ConcurrentHashMap
 
-abstract class ProtoGameRoom(roomName : String, val hostDisplay : WebSocketSession, val roundTimer : Int) : GameController {
+abstract class ProtoGameRoom(roomName : String, val hostDisplay : WebSocketSession?, val roundTimer : Int
+                             , val minPlayers : Int) : GameController {
+    /*
+   Round stage definitions
+        -1 = Not started waiting for players,
+         0 = Minimium players, in game not started,
+         1 = round started waiting for king(word chooser)
+         2 = round started waiting on answers
+         3 = judging by the king
+
+   Repeat Flow
+ */
+    var gameStage = -1
     private val playerList = ConcurrentHashMap<String, Player>()
     private var players = atomic(0)
     private lateinit var currentTimerVal : AtomicInt
@@ -17,20 +29,51 @@ abstract class ProtoGameRoom(roomName : String, val hostDisplay : WebSocketSessi
         return players.value
     }
 
+    fun getPlayers() : ConcurrentHashMap<String, Player> {
+        return playerList
+    }
+
     suspend fun addPlayer(player : Player) {
         playerList[player.id] = player
         players.incrementAndGet()
         updatePlayers()
+        if(players.value >= minPlayers) {
+            gameStage = 0
+            broadcastAll("gamestage: $gameStage")
+        }
     }
 
     suspend fun removePlayer(id: String) {
         playerList.remove(id)
         players.decrementAndGet()
         updatePlayers()
+        if (gameStage == 0  && players.value < minPlayers) {
+            gameStage = -1
+            broadcastAll("gamestage: $gameStage")
+        }
+    }
+
+    suspend fun broadcastPlayers(msg : String, playerID : String = "0") {
+        if(playerID == "0") {
+            playerList.values.forEach { player ->
+                player.ws?.send(Frame.Text(msg))
+            }
+        } else {
+            playerList[playerID]?.ws?.send(Frame.Text(msg))
+        }
+    }
+
+    suspend fun broadcastHost(msg : String) {
+        hostDisplay?.send(Frame.Text(msg))
+    }
+
+    suspend fun broadcastAll(msg : String) {
+        broadcastHost(msg)
+        broadcastPlayers(msg)
     }
 
     private suspend fun updatePlayers() {
-        hostDisplay.send(Frame.Text("Current players: ${getPlayerCount()}"))
+        hostDisplay?.send(Frame.Text("Current players: ${getPlayerCount()}"))
 
         playerList.values.forEach{ player ->
             player.ws?.send(Frame.Text("Current players: ${getPlayerCount()}"))

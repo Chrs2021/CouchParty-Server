@@ -1,6 +1,7 @@
 package com.birdbrain
 
 import com.birdbrain.components.ProtoGameRoom
+import com.birdbrain.implementation.gametype.DemoGameType
 import com.birdbrain.models.Player
 import io.ktor.application.*
 import io.ktor.features.CallLogging
@@ -50,8 +51,13 @@ fun Application.module(testing: Boolean = false) {
         webSocket("/game/create") {
             // First of all we get the session.
             var id = generateNonce()
+            val session = call.sessions.get<Player>()
+            session?.ws = this
+            //make seconds a parameter to the socket request
+            gameRooms.put(id, DemoGameType(id, session?.ws,60))
 
             try {
+
                 incoming.consumeEach { frame ->
                     if (frame is Frame.Text) {
                         gameRooms[id]?.onHostMessageRecieved(frame.readText())
@@ -64,7 +70,7 @@ fun Application.module(testing: Boolean = false) {
 
         webSocket("/game/join/*") {
             val id = call.request.path().split('/').last()
-            if(gameRooms.contains(id)){
+            if(gameRooms.keys.contains(id)){
             val session = call.sessions.get<Player>()
 
             if (session == null) {

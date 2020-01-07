@@ -42,5 +42,6 @@ dependencies {
     compile "io.ktor:ktor-client-core:$ktor_version"
     compile "io.ktor:ktor-client-core-jvm:$ktor_version"
     compile "io.ktor:ktor-client-cio:$ktor_version"
+    compile group: 'com.github.nayuki', name: 'qrcodegen', version: '1.0.0'
     testCompile "io.ktor:ktor-server-tests:$ktor_version"
 }
