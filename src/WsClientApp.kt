@@ -11,16 +11,17 @@ import kotlinx.coroutines.channels.*
 object WsClientApp {
     @JvmStatic
     fun main(args: Array<String>) {
-
+        val name = "John"
+        println(name)
         runBlocking {
             var lastCommand  = ""
             val client = HttpClient(CIO).config { install(WebSockets) }
-            client.ws(method = HttpMethod.Get, host = "127.0.0.1", port = 8080, path = "/game/join/d5128a863930c7b5") {
+            client.ws(method = HttpMethod.Get, host = "127.0.0.1", port = 8080, path = "/game/join/d7b466db1b6b1d75") {
                 send(Frame.Text("who"))
+                var running = true
+                send(Frame.Text("pNick:${name}"))
 
-                send(Frame.Text("pNick:${(Math.random()*10000).toLong().toString(16)}"))
-
-                while (true){
+                while (running){
                     if(!lastCommand.isNullOrBlank()) {
                         send(Frame.Text(lastCommand))
                         lastCommand = ""
@@ -29,6 +30,11 @@ object WsClientApp {
                     incoming.consumeEach { frame ->
                         if(frame is Frame.Text) {
                             println("Server said: ${frame.readText()}")
+                        }
+
+                        if (frame is Frame.Close) {
+                            running = false
+                            println("got removed: ${frame.readReason()}")
                         }
                     }
 

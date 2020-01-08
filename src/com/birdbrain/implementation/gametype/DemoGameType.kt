@@ -2,6 +2,8 @@ package com.birdbrain.implementation.gametype
 
 import com.birdbrain.components.ProtoGameRoom
 import com.birdbrain.models.Player
+import com.google.gson.Gson
+import com.google.gson.GsonBuilder
 import io.ktor.http.cio.websocket.WebSocketSession
 import io.nayuki.qrcodegen.QrCode
 import io.nayuki.qrcodegen.QrSegment
@@ -18,24 +20,27 @@ import java.util.*
 import java.util.concurrent.atomic.AtomicInteger
 import javax.imageio.ImageIO
 import kotlin.collections.HashMap
+import kotlin.collections.LinkedHashMap
 
 class DemoGameType(var roomName : String, val hostDisplayConn : WebSocketSession?, val roundTimerSeconds : Int) : ProtoGameRoom(roomName, hostDisplayConn, roundTimerSeconds, 3) {
     val host = "labs.snapvids.com"
     lateinit var king : String
     lateinit var chosenWord : String
-    lateinit var answerMap : HashMap<String, String>
+    lateinit var answerMap : LinkedHashMap<String, String>
     lateinit var roundTimerEvent : Timer
     lateinit var timerPosition : AtomicInt
     lateinit var roundTimerTask: TimerTask
     var remainingRoundTime = -1
+    lateinit var gson : Gson
 
     init {
         val joinCode = QrCode.encodeText("https://$host/game/$roomName", QrCode.Ecc.MEDIUM).toImage(10,2)
         var baos = ByteArrayOutputStream()
         ImageIO.write(joinCode, "png", baos)
         runBlocking {
-            broadcastHost("qr: ${Base64.getEncoder().encode(baos.toByteArray()).toString(Charset.defaultCharset())}")
+            broadcastHost("qr:${Base64.getEncoder().encode(baos.toByteArray()).toString(Charset.defaultCharset())}")
         }
+        gson = Gson()
         println("Spawning $roomName")
     }
 
@@ -71,7 +76,7 @@ class DemoGameType(var roomName : String, val hostDisplayConn : WebSocketSession
     }
 
     private fun chooseKing() {
-        var players =  getPlayers().keys().toList()
+        var players =  getPlayers().keys.toList()
         val randNum = Math.abs((Math.random() * 1000 % players.size) - 1).toInt()
 
         king = players[randNum]
@@ -128,10 +133,10 @@ class DemoGameType(var roomName : String, val hostDisplayConn : WebSocketSession
     }
 
     private suspend fun startPlayRound() {
-            if(answerMap is HashMap) {
+            if(answerMap is LinkedHashMap) {
                 answerMap.clear()
             }else {
-                answerMap = HashMap()
+                answerMap = LinkedHashMap()
             }
 
             broadcastHost("!rndStart")
@@ -174,7 +179,11 @@ class DemoGameType(var roomName : String, val hostDisplayConn : WebSocketSession
            val newName = data.split(':')[1]
            if(newName.isNotBlank()) {
                playerId.displayName = newName
-               broadcastHost(getPlayers().values.toList().toString())
+
+               gson = GsonBuilder().excludeFieldsWithoutExposeAnnotation().create()
+               val playerValues = getPlayers().values.toMutableList()
+               val playerListing = gson.toJson(playerValues)
+               broadcastHost("{\"pys\" : ${playerListing}}")
            }
         }
 

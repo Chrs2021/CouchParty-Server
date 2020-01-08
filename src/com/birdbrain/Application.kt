@@ -62,8 +62,16 @@ fun Application.module(testing: Boolean = false) {
                     if (frame is Frame.Text) {
                         gameRooms[id]?.onHostMessageRecieved(frame.readText())
                     }
+                    if(frame is Frame.Close) {
+                        println("Host leaving reason: ${frame.readReason()}")
+                    }
                 }
             }finally {
+
+                for (player in gameRooms[id]?.getPlayers()?.values!!) {
+                    println("Kicking ${player.id}")
+                    player.ws?.close(CloseReason(CloseReason.Codes.GOING_AWAY, "Display Host Left"))
+                }
                 gameRooms.remove(id)
             }
         }

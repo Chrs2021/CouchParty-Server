@@ -1,5 +1,13 @@
 package com.birdbrain.models
 
+import com.google.gson.annotations.Expose
 import io.ktor.http.cio.websocket.WebSocketSession
 
-data class Player (val id : String, var displayName: String = "", var avatar : String ="", var ws : WebSocketSession? = null)
+data class Player (
+    @Expose
+    val id : String,
+    @Expose
+    var displayName: String = "",
+    @Expose
+    var avatar : String ="",
+    var ws : WebSocketSession? = null)

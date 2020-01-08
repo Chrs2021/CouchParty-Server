@@ -2,6 +2,7 @@ package com.birdbrain.components
 
 import com.birdbrain.interfaces.GameController
 import com.birdbrain.models.Player
+import com.google.gson.GsonBuilder
 import io.ktor.http.cio.websocket.Frame
 import io.ktor.http.cio.websocket.WebSocketSession
 import kotlinx.atomicfu.AtomicInt
@@ -21,7 +22,7 @@ abstract class ProtoGameRoom(roomName : String, val hostDisplay : WebSocketSessi
    Repeat Flow
  */
     var gameStage = -1
-    private val playerList = ConcurrentHashMap<String, Player>()
+    private val playerList = LinkedHashMap<String, Player>()
     private var players = atomic(0)
     private lateinit var currentTimerVal : AtomicInt
 
@@ -29,7 +30,7 @@ abstract class ProtoGameRoom(roomName : String, val hostDisplay : WebSocketSessi
         return players.value
     }
 
-    fun getPlayers() : ConcurrentHashMap<String, Player> {
+    fun getPlayers() : LinkedHashMap<String, Player> {
         return playerList
     }
 
@@ -73,7 +74,10 @@ abstract class ProtoGameRoom(roomName : String, val hostDisplay : WebSocketSessi
     }
 
     private suspend fun updatePlayers() {
-        hostDisplay?.send(Frame.Text("Current players: ${getPlayerCount()}"))
+        val gson = GsonBuilder().excludeFieldsWithoutExposeAnnotation().create()
+        val playerValues = getPlayers().values.toMutableList()
+        val playerListing = gson.toJson(playerValues)
+        broadcastHost("{\"pys\" : ${playerListing}}")
 
         playerList.values.forEach{ player ->
             player.ws?.send(Frame.Text("Current players: ${getPlayerCount()}"))
