@@ -15,6 +15,7 @@ import io.ktor.request.path
 import io.ktor.util.InternalAPI
 import io.ktor.util.generateNonce
 import kotlinx.coroutines.channels.*
+import java.lang.Exception
 import java.util.concurrent.ConcurrentHashMap
 
 fun main(args: Array<String>): Unit = io.ktor.server.netty.EngineMain.main(args)
@@ -41,7 +42,7 @@ fun Application.module(testing: Boolean = false) {
 
     install(WebSockets) {
         pingPeriod = Duration.ofMinutes(1)
-        timeout = Duration.ofSeconds(15)
+        timeout = Duration.ofSeconds(30)
         maxFrameSize = Long.MAX_VALUE
         masking = false
     }
@@ -57,17 +58,20 @@ fun Application.module(testing: Boolean = false) {
             gameRooms.put(id, DemoGameType(id, session?.ws,60))
 
             try {
-
                 incoming.consumeEach { frame ->
                     if (frame is Frame.Text) {
                         gameRooms[id]?.onHostMessageRecieved(frame.readText())
+                    }
+                    if (frame is Frame.Pong) {
+                        println("received Pong")
                     }
                     if(frame is Frame.Close) {
                         println("Host leaving reason: ${frame.readReason()}")
                     }
                 }
-            }finally {
-
+            }catch (ex : Exception) {
+                ex.printStackTrace()
+                //burn it down!
                 for (player in gameRooms[id]?.getPlayers()?.values!!) {
                     println("Kicking ${player.id}")
                     player.ws?.close(CloseReason(CloseReason.Codes.GOING_AWAY, "Display Host Left"))
@@ -95,7 +99,9 @@ fun Application.module(testing: Boolean = false) {
                         gameRooms[id]?.onMessageReceived(frame.readText(), session)
                     }
                 }
-            }finally {
+            }catch (ex : Exception){
+              ex.printStackTrace()
+            } finally{
                 session?.id?.let {
                     log.debug("player $id left the room!")
                     gameRooms[id]?.removePlayer(it) }

@@ -10,16 +10,10 @@ import io.nayuki.qrcodegen.QrSegment
 import kotlinx.atomicfu.AtomicInt
 import kotlinx.atomicfu.atomic
 import kotlinx.coroutines.runBlocking
-import kotlinx.css.iframe
-import java.io.BufferedInputStream
 import java.io.ByteArrayOutputStream
-import java.io.InputStream
 import java.nio.charset.Charset
-import java.sql.Time
 import java.util.*
-import java.util.concurrent.atomic.AtomicInteger
 import javax.imageio.ImageIO
-import kotlin.collections.HashMap
 import kotlin.collections.LinkedHashMap
 
 class DemoGameType(var roomName : String, val hostDisplayConn : WebSocketSession?, val roundTimerSeconds : Int) : ProtoGameRoom(roomName, hostDisplayConn, roundTimerSeconds, 3) {
@@ -86,12 +80,9 @@ class DemoGameType(var roomName : String, val hostDisplayConn : WebSocketSession
     private suspend fun processSetupCommands(data : String, playerId: Player) {}
 
     private suspend fun processGameSetupCommands(data: String, playerId: Player) {
-        if(data.startsWith("gStart!")) {
-            if (data.split(':')[1].isNotEmpty()) {
-                broadcastHost("gStart!")
+        if(data.startsWith("gStart")) {
+                broadcastHost("gStart")
                 startGame()
-
-            }
         }
     }
 
