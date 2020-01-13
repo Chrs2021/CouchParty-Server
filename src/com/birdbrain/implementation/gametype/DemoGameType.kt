@@ -42,18 +42,33 @@ class DemoGameType(var roomName : String, val hostDisplayConn : WebSocketSession
         chooseKing()
         timerPosition = atomic(roundTimerSeconds)
         gameStage = 1
-        broadcastHost("gameStage:$gameStage")
-        broadcastAll("King: $king")
-        broadcastAll("text:Waiting on the King to set the backronym")
-        broadcastPlayers("Set the chosen word", king)
+        broadcastHost("gamestage: $gameStage")
+        announceKing()
+        broadcastAll("selectingText")
+        broadcastPlayers("king'd!", king)
+        broadcastPlayers("chooseWord", king)
         buildTimer()
     }
 
+    private suspend fun announceKing() {
+        val players = getPlayers()
+        players[king]?.isKing = true
+        val playerValues = players.values.toMutableList()
+        val playerListing = gson.toJson(playerValues)
+        broadcastHost("{\"pys\" : ${playerListing}}")
+    }
+
     private fun timerTick()  = runBlocking {
-        broadcastAll("timer:{${timerPosition.decrementAndGet()},$roundTimer}")
+        broadcastAll(gson.toJson(com.birdbrain.models.Timer(timerPosition.decrementAndGet(), roundTimerSeconds)))
         if(timerPosition.value == 0) {
             roundTimerEvent.cancel()
-            broadcastAll("timer:expire")
+            if(gameStage == 1) {
+                gameStage--
+                getPlayers()[king]?.isKing = false
+                broadcastAll("gamestage: 0")
+                updatePlayers()
+            }
+
         }
     }
 
@@ -88,10 +103,10 @@ class DemoGameType(var roomName : String, val hostDisplayConn : WebSocketSession
 
     private suspend fun processGameConfigCommands(data : String, playerId: Player) {
         if(data.startsWith("chWord:") && playerId.id == king){
-            chosenWord = data.split(':')[1]
+            chosenWord = data.split(':')[1].trimStart().trimEnd()
             if(data.split(':')[1].isNotEmpty()) {
-                broadcastHost("chWord: $chosenWord")
                 roundTimerEvent.cancel()
+                broadcastHost("chWord: $chosenWord")
                 startPlayRound()
             }
         }
@@ -124,7 +139,7 @@ class DemoGameType(var roomName : String, val hostDisplayConn : WebSocketSession
     }
 
     private suspend fun startPlayRound() {
-            if(answerMap is LinkedHashMap) {
+            if(::answerMap.isInitialized) {
                 answerMap.clear()
             }else {
                 answerMap = LinkedHashMap()

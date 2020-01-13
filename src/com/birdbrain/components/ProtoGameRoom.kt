@@ -73,7 +73,7 @@ abstract class ProtoGameRoom(roomName : String, val hostDisplay : WebSocketSessi
         broadcastPlayers(msg)
     }
 
-    private suspend fun updatePlayers() {
+    internal suspend fun updatePlayers() {
         val gson = GsonBuilder().excludeFieldsWithoutExposeAnnotation().create()
         val playerValues = getPlayers().values.toMutableList()
         val playerListing = gson.toJson(playerValues)

@@ -10,4 +10,6 @@ data class Player (
     var displayName: String = "",
     @Expose
     var avatar : String ="",
+    @Expose
+    var isKing : Boolean = false,
     var ws : WebSocketSession? = null)

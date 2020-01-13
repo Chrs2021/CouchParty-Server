@@ -1,4 +1,4 @@
-import com.birdbrain.ui.curses.CursesUIWindow
+import com.birdbrain.ui.awt.AwtClientInterface
 import io.ktor.http.*
 import io.ktor.http.cio.websocket.*
 import io.ktor.client.*
@@ -38,7 +38,7 @@ object WsClientApp {
         runBlocking {
             val client = HttpClient(CIO).config { install(WebSockets) }
             client.ws(method = HttpMethod.Get, host = "$host", port = 8080, path = "/game/join/${roomCode}") {
-                val window  = CursesUIWindow(0,0,80, 80, "Test", this)
+                val window  = AwtClientInterface(0,0,80, 80, "Test", this)
 
                 window.mainFram.addWindowListener(object : WindowAdapter(){
                     override fun windowClosed(e: WindowEvent?) {
@@ -51,6 +51,9 @@ object WsClientApp {
                 while (running){
                     incoming.consumeEach { frame ->
                         if(frame is Frame.Text) {
+                          if(frame.readText().equals("king'd!")) {
+                              window.flashWindow()
+                          }
                           window.addMessage("Server said: ${frame.readText()}\n")
                         }
                     }

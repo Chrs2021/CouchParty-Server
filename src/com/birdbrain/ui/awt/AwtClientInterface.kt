@@ -8,6 +8,7 @@ import kotlinx.coroutines.runBlocking
 import java.awt.*
 import java.awt.event.WindowAdapter
 import java.awt.event.WindowEvent
+import javax.swing.text.Caret
 
 class AwtClientInterface(x : Int, y : Int, width : Int, height : Int, title: String, ws : WebSocketSession)   {
     val mainFram = Frame()
@@ -41,7 +42,13 @@ class AwtClientInterface(x : Int, y : Int, width : Int, height : Int, title: Str
         mainFram.isVisible = true
     }
 
+    public fun flashWindow () {
+        mainFram.title = "Current King!"
+        mainFram.run { requestFocus() }
+    }
+
     public fun addMessage(msg : String) {
         messageArea.text += msg
+        messageArea.caretPosition = messageArea.text.length
     }
 }
