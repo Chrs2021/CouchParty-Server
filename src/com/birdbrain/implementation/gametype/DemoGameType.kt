@@ -2,11 +2,9 @@ package com.birdbrain.implementation.gametype
 
 import com.birdbrain.components.ProtoGameRoom
 import com.birdbrain.models.Player
-import com.google.gson.Gson
 import com.google.gson.GsonBuilder
 import io.ktor.http.cio.websocket.WebSocketSession
 import io.nayuki.qrcodegen.QrCode
-import io.nayuki.qrcodegen.QrSegment
 import kotlinx.atomicfu.AtomicInt
 import kotlinx.atomicfu.atomic
 import kotlinx.coroutines.runBlocking
@@ -14,18 +12,20 @@ import java.io.ByteArrayOutputStream
 import java.nio.charset.Charset
 import java.util.*
 import javax.imageio.ImageIO
+import kotlin.collections.HashMap
 import kotlin.collections.LinkedHashMap
 
 class DemoGameType(var roomName : String, val hostDisplayConn : WebSocketSession?, val roundTimerSeconds : Int) : ProtoGameRoom(roomName, hostDisplayConn, roundTimerSeconds, 3) {
     val host = "labs.snapvids.com"
     lateinit var king : String
     lateinit var chosenWord : String
-    lateinit var answerMap : LinkedHashMap<String, String>
+    var answerMap : LinkedHashMap<String, String> = LinkedHashMap()
     lateinit var roundTimerEvent : Timer
     lateinit var timerPosition : AtomicInt
     lateinit var roundTimerTask: TimerTask
     var remainingRoundTime = -1
-    lateinit var gson : Gson
+    val  gson = GsonBuilder().excludeFieldsWithoutExposeAnnotation().create()
+
 
     init {
         val joinCode = QrCode.encodeText("https://$host/game/$roomName", QrCode.Ecc.MEDIUM).toImage(10,2)
@@ -34,7 +34,6 @@ class DemoGameType(var roomName : String, val hostDisplayConn : WebSocketSession
         runBlocking {
             broadcastHost("qr:${Base64.getEncoder().encode(baos.toByteArray()).toString(Charset.defaultCharset())}")
         }
-        gson = Gson()
         println("Spawning $roomName")
     }
 
@@ -65,7 +64,7 @@ class DemoGameType(var roomName : String, val hostDisplayConn : WebSocketSession
             if(gameStage == 1) {
                 gameStage--
                 getPlayers()[king]?.isKing = false
-                broadcastAll("gamestage: 0")
+                broadcastAll("gamestage: $gameStage")
                 updatePlayers()
             }
 
@@ -113,11 +112,23 @@ class DemoGameType(var roomName : String, val hostDisplayConn : WebSocketSession
     }
 
     private suspend fun processGameAnswers(data: String, playerId: Player) {
-
+                if(!answerMap.containsKey(playerId.id)) {
+                    if(data.split(":").size > 1)
+                        answerMap[playerId.id] = data.split(":")[1]
+                    val answerValues = answerMap.values.toMutableList()
+                    val answerList = gson.toJson(answerValues)
+                    broadcastHost("{\"pys\" : ${answerList}}")
+                }
     }
 
     private suspend fun decidingResults(data: String, playerId: Player) {
+            if(playerId.isKing) {
+                val cmd  = data.split(":")
+                if(cmd[0] =="winner")
+                    if(getPlayers().containsKey(cmd[0]))
+                        broadcastHost("{\"winner\" : ${gson.toJson(getPlayers()[cmd[0]])}}")
 
+            }
     }
 
     //Host Processing
@@ -127,7 +138,10 @@ class DemoGameType(var roomName : String, val hostDisplayConn : WebSocketSession
     }
 
     private suspend fun processGameConfigHostCommands(data : String) {
-
+            if(data == "rndStart") {
+                gameStage++
+                broadcastAll("gamestage: $gameStage")
+            }
     }
 
     private suspend fun processGameHostAnswers(data : String) {
@@ -139,13 +153,9 @@ class DemoGameType(var roomName : String, val hostDisplayConn : WebSocketSession
     }
 
     private suspend fun startPlayRound() {
-            if(::answerMap.isInitialized) {
-                answerMap.clear()
-            }else {
-                answerMap = LinkedHashMap()
-            }
+        answerMap.clear()
 
-            broadcastHost("!rndStart")
+        broadcastHost("!rndStart")
     }
 
 
@@ -186,7 +196,6 @@ class DemoGameType(var roomName : String, val hostDisplayConn : WebSocketSession
            if(newName.isNotBlank()) {
                playerId.displayName = newName
 
-               gson = GsonBuilder().excludeFieldsWithoutExposeAnnotation().create()
                val playerValues = getPlayers().values.toMutableList()
                val playerListing = gson.toJson(playerValues)
                broadcastHost("{\"pys\" : ${playerListing}}")
@@ -195,7 +204,9 @@ class DemoGameType(var roomName : String, val hostDisplayConn : WebSocketSession
 
         when(data) {
             "who" -> {
-                broadcastPlayers("$roomName, ${playerId.id}" , playerId.id)
+                val playerData =  HashMap<String, Player>()
+                playerData[roomName] = playerId
+                broadcastPlayers(gson.toJson(playerData) , playerId.id)
             }
         }
     }

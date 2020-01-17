@@ -46,3 +46,11 @@ dependencies {
     compile group: 'io.nayuki', name: 'qrcodegen', version: '1.5.0'
     testCompile "io.ktor:ktor-server-tests:$ktor_version"
 }
+jar() {
+    baseName 'test_display'
+    manifest {
+        attributes 'Main-Class': 'WsHostClientApp'
+    }
+
+    from { configurations.compile.collect { it.isDirectory() ? it : zipTree(it) } }
+}

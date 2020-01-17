@@ -48,7 +48,7 @@ abstract class ProtoGameRoom(roomName : String, val hostDisplay : WebSocketSessi
         playerList.remove(id)
         players.decrementAndGet()
         updatePlayers()
-        if (gameStage == 0  && players.value < minPlayers) {
+        if (gameStage  > 0  && players.value < minPlayers) {
             gameStage = -1
             broadcastAll("gamestage: $gameStage")
         }

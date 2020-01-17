@@ -69,8 +69,7 @@ fun Application.module(testing: Boolean = false) {
                         println("Host leaving reason: ${frame.readReason()}")
                     }
                 }
-            }catch (ex : Exception) {
-                ex.printStackTrace()
+            } finally {
                 //burn it down!
                 for (player in gameRooms[id]?.getPlayers()?.values!!) {
                     println("Kicking ${player.id}")
@@ -90,18 +89,22 @@ fun Application.module(testing: Boolean = false) {
                 return@webSocket
             }
 
-            println("player ${session?.id} joined")
-            session?.ws = this
-            gameRooms[id]?.addPlayer(session!!)
+                println("player ${session?.id} joined")
+                session?.ws = this
+
+                if(gameRooms[id]?.getPlayers()?.size == 0) {
+                    session.isLeader = true
+                }
+
+                gameRooms[id]?.addPlayer(session!!)
+
             try {
                 incoming.consumeEach { frame ->
                     if (frame is Frame.Text ) {
                         gameRooms[id]?.onMessageReceived(frame.readText(), session)
                     }
                 }
-            }catch (ex : Exception){
-              ex.printStackTrace()
-            } finally{
+            } finally {
                 session?.id?.let {
                     log.debug("player $id left the room!")
                     gameRooms[id]?.removePlayer(it) }
