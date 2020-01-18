@@ -44,7 +44,7 @@ abstract class ProtoGameRoom(roomName : String, val hostDisplay : WebSocketSessi
         }
     }
 
-    suspend fun removePlayer(id: String) {
+    open suspend fun removePlayer(id: String) {
         playerList.remove(id)
         players.decrementAndGet()
         updatePlayers()
@@ -52,6 +52,11 @@ abstract class ProtoGameRoom(roomName : String, val hostDisplay : WebSocketSessi
             gameStage = -1
             broadcastAll("gamestage: $gameStage")
         }
+    }
+
+    suspend fun announceGameStage(stage : Int) {
+        gameStage = stage
+        broadcastAll("gamestage: $gameStage")
     }
 
     suspend fun broadcastPlayers(msg : String, playerID : String = "0") {
