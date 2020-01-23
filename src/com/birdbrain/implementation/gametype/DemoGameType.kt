@@ -3,6 +3,7 @@ package com.birdbrain.implementation.gametype
 import com.birdbrain.components.ProtoGameRoom
 import com.birdbrain.models.Answer
 import com.birdbrain.models.Player
+import com.birdbrain.models.SelectedWinner
 import com.google.gson.GsonBuilder
 import io.ktor.http.cio.websocket.WebSocketSession
 import io.nayuki.qrcodegen.QrCode
@@ -41,13 +42,14 @@ class DemoGameType(var roomName: String, val hostDisplayConn: WebSocketSession?,
 	}
 
 	private suspend fun startGame() {
-		chooseKing()
+        if(!::king.isInitialized)
+            chooseKing()
 		timerPosition = atomic(roundTimerSeconds)
 		gameStage = 1
 		broadcastHost("gamestage: $gameStage")
-		announceKing()
+        announceKing()
 		broadcastAll("selectingText")
-		broadcastPlayers("king'd!", king)
+        broadcastPlayers("king'd!", king)
 		broadcastPlayers("chooseWord", king)
 		buildTimer()
 	}
@@ -152,15 +154,30 @@ class DemoGameType(var roomName: String, val hostDisplayConn: WebSocketSession?,
 
     private suspend fun decidingResults(data: String, playerId: Player) {
 		if (playerId.isKing) {
-			val cmd = data.split(":")
-			if (cmd[0] == "winner")
-				if (getPlayers().containsKey(cmd[0]))
-					broadcastHost("{\"winner\" : ${gson.toJson(getPlayers()[cmd[0]])}}")
-
+           val winner = gson.fromJson<SelectedWinner>(data, SelectedWinner::class.java)
+            if (getPlayers().containsKey(winner?.winningId)) {
+                broadcastHost(data)
+                updateKing(winner.winningId)
+                announceKing()
+                announceGameStage(0)
+            }
 		}
 	}
 
-	//Host Processing
+    private fun updateKing(winner: String) {
+        val players  = getPlayers()
+        players[king]?.isKing = false
+        king = ""
+        for (player in players){
+
+            if (player.key == winner) {
+                player.value.isKing = true
+                king = player.key
+            }
+        }
+    }
+
+    //Host Processing
 
 	private suspend fun processGameSetupHostCommands(data: String) {
 

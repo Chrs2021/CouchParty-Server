@@ -20,11 +20,18 @@ object WsHostClientApp {
                     incoming.consumeEach { frame ->
                         if(frame is Frame.Text) {
                             println("Server said: ${frame.readText()}")
+                            processMessage(frame.readText(),this)
                         }
                     }
 
                 }
             }
+        }
+    }
+
+    suspend fun processMessage(msg : String, ws : WebSocketSession) {
+        if(msg == "!rndStart") {
+            ws.send(Frame.Text("rndStart"))
         }
     }
 }
