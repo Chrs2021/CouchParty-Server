@@ -37,7 +37,7 @@ object WsClientApp {
     fun startClient(host : String?, playerName : String?, roomCode : String?) {
         runBlocking {
             val client = HttpClient(CIO).config { install(WebSockets) }
-            client.ws(method = HttpMethod.Get, host = "$host", port = 8080, path = "/game/join/${roomCode}") {
+            client.ws(method = HttpMethod.Get, host = "$host", port = 8089, path = "/game/join/${roomCode}") {
                 val window  = AwtClientInterface(0,0,80, 80, "Test", this)
 
                 window.mainFram.addWindowListener(object : WindowAdapter(){

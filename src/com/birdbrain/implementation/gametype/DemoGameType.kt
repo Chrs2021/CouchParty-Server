@@ -29,16 +29,18 @@ class DemoGameType(var roomName: String, val hostDisplayConn: WebSocketSession?,
 	lateinit var roundTimerTask: TimerTask
 	var remainingRoundTime = -1
 	val gson = GsonBuilder().excludeFieldsWithoutExposeAnnotation().create()
-
+	var winningId = ""
 
 	init {
-		val joinCode = QrCode.encodeText("https://$host/game/$roomName", QrCode.Ecc.MEDIUM).toImage(10, 2)
+		val joinCode = QrCode.encodeText("https://$host/backronyms/#/$roomName", QrCode.Ecc.MEDIUM).toImage(10, 2)
 		var baos = ByteArrayOutputStream()
 		ImageIO.write(joinCode, "png", baos)
 		runBlocking {
 			broadcastHost("qr:${Base64.getEncoder().encode(baos.toByteArray()).toString(Charset.defaultCharset())}")
 		}
-		println("Spawning $roomName")
+
+		println(Base64.getEncoder().encode(baos.toByteArray()).toString(Charset.defaultCharset()))
+		println("Spawning https://$host/backronyms/#/$roomName")
 	}
 
 	private suspend fun startGame() {
@@ -157,9 +159,6 @@ class DemoGameType(var roomName: String, val hostDisplayConn: WebSocketSession?,
            val winner = gson.fromJson<SelectedWinner>(data, SelectedWinner::class.java)
             if (getPlayers().containsKey(winner?.winningId)) {
                 broadcastHost(data)
-                updateKing(winner.winningId)
-                announceKing()
-                announceGameStage(0)
             }
 		}
 	}
@@ -178,7 +177,6 @@ class DemoGameType(var roomName: String, val hostDisplayConn: WebSocketSession?,
     }
 
     //Host Processing
-
 	private suspend fun processGameSetupHostCommands(data: String) {
 
 	}
@@ -195,7 +193,11 @@ class DemoGameType(var roomName: String, val hostDisplayConn: WebSocketSession?,
 	}
 
 	private suspend fun decidingHostResults(data: String) {
-
+		if(data == "animComplete!") {
+			updateKing(winningId)
+			announceKing()
+			announceGameStage(0)
+		}
 	}
 
 	private suspend fun startPlayRound() {
@@ -251,7 +253,16 @@ class DemoGameType(var roomName: String, val hostDisplayConn: WebSocketSession?,
 				broadcastHost("{\"pys\" : ${playerListing}}")
 			}
 		}
+		if (data.startsWith("pAvatar:")) {
+			val avatarURI = data.substring(data.indexOf(":")+1)
+			if (avatarURI.isNotBlank()) {
+				playerId.avatar = avatarURI
 
+				val playerValues = getPlayers().values.toMutableList()
+				val playerListing = gson.toJson(playerValues)
+				broadcastHost("{\"pys\" : ${playerListing}}")
+			}
+		}
 		when (data) {
 			"who" -> {
 				val playerData = HashMap<String, Player>()

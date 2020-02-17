@@ -4,13 +4,20 @@ import com.birdbrain.components.ProtoGameRoom
 import com.birdbrain.implementation.gametype.DemoGameType
 import com.birdbrain.models.Player
 import io.ktor.application.*
+import io.ktor.features.CORS
 import io.ktor.features.CallLogging
+import io.ktor.http.HttpHeaders
+import io.ktor.http.HttpMethod
 import io.ktor.routing.*
 import io.ktor.sessions.*
 import io.ktor.websocket.*
 import io.ktor.http.cio.websocket.*
 import java.time.*
 import io.ktor.http.cio.websocket.Frame
+import io.ktor.http.content.defaultResource
+import io.ktor.http.content.files
+import io.ktor.http.content.resources
+import io.ktor.http.content.static
 import io.ktor.request.path
 import io.ktor.util.InternalAPI
 import io.ktor.util.generateNonce
@@ -33,7 +40,12 @@ fun Application.module(testing: Boolean = false) {
 
 
     install(CallLogging)
-
+    install(CORS) {
+        method(HttpMethod.Options)
+        header(HttpHeaders.XForwardedProto)
+        allowNonSimpleContentTypes = true
+        anyHost()
+    }
     intercept(ApplicationCallPipeline.Features) {
         if (call.sessions.get<Player>() == null) {
             call.sessions.set(Player(generateNonce()))
@@ -48,7 +60,14 @@ fun Application.module(testing: Boolean = false) {
     }
 
     routing {
-
+        static("avatars") {
+            resources("avatars")
+            files("avatars")
+        }
+        static("config") {
+            defaultResource("config.json", "configuration")
+            resources("configuration")
+        }
         webSocket("/game/create") {
             // First of all we get the session.
             var id = generateNonce()
@@ -62,12 +81,6 @@ fun Application.module(testing: Boolean = false) {
                     if (frame is Frame.Text) {
                         gameRooms[id]?.onHostMessageRecieved(frame.readText())
                     }
-                    if (frame is Frame.Pong) {
-                        println("received Pong")
-                    }
-                    if(frame is Frame.Close) {
-                        println("Host leaving reason: ${frame.readReason()}")
-                    }
                 }
             } finally {
                 //burn it down!
@@ -75,6 +88,7 @@ fun Application.module(testing: Boolean = false) {
                     println("Kicking ${player.id}")
                     player.ws?.close(CloseReason(CloseReason.Codes.GOING_AWAY, "Display Host Left"))
                 }
+
                 gameRooms.remove(id)
             }
         }
